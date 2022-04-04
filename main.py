@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # tf-idf and sbert embeddings
     for frame in data_frames.values():
         frame['tf-idf'] = tfidf(frame['text'])
-        frame['sbert'] = sbert(frame['text'])
+        #frame['sbert'] = sbert(frame['text'])
 
     # dump processed versions to CSVs
     for path, frame in data_frames.items():

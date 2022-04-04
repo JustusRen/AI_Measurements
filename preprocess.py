@@ -93,5 +93,5 @@ def sbert(series: pandas.Series) -> pandas.Series:
     model = SentenceTransformer('all-MiniLM-L6-v2')
     embeddings = model.encode(series.array)
 
-    del model, embeddings
+    del model
     return pandas.Series(data=embeddings)
