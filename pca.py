@@ -12,6 +12,7 @@ from sklearn.decomposition import IncrementalPCA, PCA
 SAMPLE_SIZE = 3000
 COMPONENTS = 2
 
+
 if __name__ == "__main__":
     if os.path.exists('True.csv') and os.path.exists('Fake.csv'):
         files = glob.glob('*.csv')
@@ -27,40 +28,65 @@ if __name__ == "__main__":
             frames[file]['label'] = np.zeros(frames[file].size)
 
     dataset = pandas.concat(frames.values())
-    dataset_size = dataset.size
-    dataset = dataset.sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED)
-
-    x = dataset['text'].values
-    y = dataset['label'].values
-
-    del dataset, frames, files
 
     # TF-IDF and BOW vectorizers
     tfidf_vectorizer = TfidfVectorizer()
-    # count_vectorizer = CountVectorizer()
-
-    # generate embeddings for TF-IDF and BOW
-    tfidf_embeddings = tfidf_vectorizer.fit_transform(x).toarray()
-    del tfidf_vectorizer
-    # bow_embeddings = count_vectorizer.fit_transform(dataset['text'].values)
-
-    # shapes should be the same
-    # print('Check that matrix shapes match:', tfidf_embeddings.shape == bow_embeddings.shape)
-    # general matrix shape
-    # print('BOW/TF-IDF matrix shapes:', bow_embeddings.shape)
-    print('TF-IDF matrix shape:', tfidf_embeddings.shape)
-
-    # principle component analysis of both the tf-idf and bow matrices (keep 2 components and plot)
     analyzer = PCA(n_components=COMPONENTS)
-    tfidf_pca = analyzer.fit_transform(tfidf_embeddings)
-    del analyzer, tfidf_embeddings
-    # bow_pca = analyzer.fit_transform(bow_embeddings.toarray())
 
-    print('PCA shape matrix shape:', tfidf_pca.shape)
-    # print(bow_pca.shape)
-    plt.scatter(tfidf_pca[y == 0, 0], tfidf_pca[y == 0, 1], color='b', s=10, label='False')
-    plt.scatter(tfidf_pca[y == 1, 0], tfidf_pca[y == 1, 1], color='r', s=10, label='True')
-    plt.title(f'PCA of TF-IDF Vectors (n={SAMPLE_SIZE}, dataset size={dataset_size})')
-    plt.legend()
-    plt.savefig('scatter_plot_subset.png', format='png')
-    # plt.show()
+    figure = plt.figure()
+    for i in range(6):
+        # subset of the larger dataset to perform principle component analysis on
+        # (dataset is too large to process all at once)
+        subset = dataset.sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED + i)
+
+        # split data and labels into x and y
+        x = subset['text'].values
+        y = subset['label'].values
+
+        # generate embeddings for TF-IDF
+        print(f'Iteration: {i + 1}')
+        tfidf_embeddings = tfidf_vectorizer.fit_transform(x).toarray()
+        print('TF-IDF matrix shape:', tfidf_embeddings.shape)
+
+        # principle component analysis of the tf-idf matrix/embeddings (keep 2 components and plot)
+        tfidf_pca = analyzer.fit_transform(tfidf_embeddings)
+        print('PCA matrix shape:', tfidf_pca.shape)
+
+        # plot data for this iteration
+        figure.add_subplot(2, 3, i + 1)
+        plt.scatter(tfidf_pca[y == 0, 0], tfidf_pca[y == 0, 1], color='b', s=10, label='False')
+        plt.scatter(tfidf_pca[y == 1, 0], tfidf_pca[y == 1, 1], color='r', s=10, label='True')
+        plt.title(f'PCA of TF-IDF Vectors (n={SAMPLE_SIZE}, iteration={i + 1})')
+        plt.legend()
+
+    plt.show()
+
+    bow_vectorizer = CountVectorizer()
+
+    figure = plt.figure()
+    for i in range(6):
+        # subset of the larger dataset to perform principle component analysis on
+        # (dataset is too large to process all at once)
+        subset = dataset.sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED + i)
+
+        # split data and labels into x and y
+        x = subset['text'].values
+        y = subset['label'].values
+
+        # generate embeddings for BOW
+        print(f'Iteration: {i + 1}')
+        bow_embeddings = bow_vectorizer.fit_transform(x).toarray()
+        print('BOW matrix shape:', bow_embeddings.shape)
+
+        # principle component analysis of the bow matrix/embeddings (keep 2 components and plot)
+        bow_pca = analyzer.fit_transform(bow_embeddings)
+        print('PCA matrix shape:', bow_pca.shape)
+
+        # plot data for this iteration
+        figure.add_subplot(2, 3, i + 1)
+        plt.scatter(bow_pca[y == 0, 0], bow_pca[y == 0, 1], color='b', s=10, label='False')
+        plt.scatter(bow_pca[y == 1, 0], bow_pca[y == 1, 1], color='r', s=10, label='True')
+        plt.title(f'PCA of BOW Vectors (n={SAMPLE_SIZE}, iteration={i + 1}')
+        plt.legend()
+
+    plt.show()
