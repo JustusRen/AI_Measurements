@@ -7,6 +7,7 @@ from transformers import squad_convert_examples_to_features
 from bnn import download_data, RANDOM_SEED
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import IncrementalPCA, PCA
+from sentence_transformers import SentenceTransformer
 
 
 SAMPLE_SIZE = 3000
@@ -87,6 +88,36 @@ if __name__ == "__main__":
         plt.scatter(bow_pca[y == 0, 0], bow_pca[y == 0, 1], color='b', s=10, label='False')
         plt.scatter(bow_pca[y == 1, 0], bow_pca[y == 1, 1], color='r', s=10, label='True')
         plt.title(f'PCA of BOW Vectors (n={SAMPLE_SIZE}, iteration={i + 1}')
+        plt.legend()
+
+    plt.show()
+
+    sbert_vectorizer = SentenceTransformer('all-MiniLM-L6-v2')
+
+    figure = plt.figure()
+    for i in range(6):
+        # subset of the larger dataset to perform principle component analysis on
+        # (dataset is too large to process all at once)
+        subset = dataset.sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED + i)
+
+        # split data and labels into x and y
+        x = subset['text'].values
+        y = subset['label'].values
+
+        # generate embeddings for BOW
+        print(f'Iteration: {i + 1}')
+        sbert_embeddings = sbert_vectorizer.encode(x, convert_to_numpy=True, show_progress_bar=True)
+        print('BOW matrix shape:', sbert_embeddings.shape)
+
+        # principle component analysis of the bow matrix/embeddings (keep 2 components and plot)
+        sbert_pca = analyzer.fit_transform(sbert_embeddings)
+        print('PCA matrix shape:', sbert_pca.shape)
+
+        # plot data for this iteration
+        figure.add_subplot(2, 3, i + 1)
+        plt.scatter(sbert_pca[y == 0, 0], sbert_pca[y == 0, 1], color='b', s=10, label='False')
+        plt.scatter(sbert_pca[y == 1, 0], sbert_pca[y == 1, 1], color='r', s=10, label='True')
+        plt.title(f'PCA of BOW Vectors (n={SAMPLE_SIZE}, iteration={i + 1})')
         plt.legend()
 
     plt.show()
