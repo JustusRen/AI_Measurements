@@ -15,28 +15,36 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 # hidden units for nn
 HIDDEN_UNITS = [8, 8]
+
 # constant random state value for reproducability
 RANDOM_SEED = 1
+
 # urls for true/false datasets
 DATASET_URLS = [
     "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/True.csv",
     "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/Fake.csv"
 ]
+
 # sbert embedding dimension(s)
 SBERT_DIM = 384
+
 # number of samples to test/train on
 NUM_SAMPLES = 3000
+
 # train/test split factor
 SPLIT_FACTOR = 0.5
+
 # train/test batch size
 TRAIN_SIZE = int(NUM_SAMPLES * SPLIT_FACTOR)
 TEST_SIZE = int(NUM_SAMPLES - TRAIN_SIZE)
+
 # number of prediction samples to take
 # (since the network is probabilistic the predictions will be vary for the same
 #  sample, need to take multiple predictions to get an accurate result)
 PREDICTION_ITERATIONS = 100
+
 # number of epochs to train for
-EPOCHS=300
+EPOCHS = 30
 
 
 def download_data() -> List[str]:
@@ -94,6 +102,7 @@ def create_hybrid_bnn(train_size:int, input_size:int) -> keras.Model:
     )(features)
 
     outputs = tfp.layers.IndependentNormal(1)(distribution_params)
+    # outputs = keras.layers.ReLU(max_value=1.0)(outputs)
 
     model = keras.Model(inputs=inputs, outputs=outputs, name='hybrid-bnn')
     return model
@@ -153,11 +162,11 @@ if __name__ == '__main__':
     model = create_hybrid_bnn(TRAIN_SIZE, feature_size)
     model.compile(
         optimizer=keras.optimizers.RMSprop(learning_rate=0.001),
-        loss=keras.losses.MeanSquaredError(),
-        metrics=[keras.metrics.RootMeanSquaredError()]
+        loss=keras.losses.CategoricalCrossentropy(),
+        metrics=[keras.metrics.CategoricalAccuracy()]
     )
 
-    model.fit(
+    history = model.fit(
         x_train,
         y_train,
         epochs=EPOCHS,
@@ -166,33 +175,24 @@ if __name__ == '__main__':
     )
 
     # evaluate model
-    # results = model.evaluate(x_test, y_test)
-    # print('test loss, tess acc:', results)
+    results = model.evaluate(x_test, y_test)
+    print(f'\n\ntest loss: {results[0]}, test accuracy: {results[1]}\n')
 
-    # predict on 3 test samples
-    predictions = []
-    for _ in range(PREDICTION_ITERATIONS):
-        prediction = model.predict(x_test)
-        predictions.append(
-            np.array([1 if i[0] > 0 else 0 for i in prediction.tolist()]).reshape(TEST_SIZE, 1)
-        )
+    # predict on test samples
+    for i, sample in enumerate(x_test[:, :]):
+        sample = sample.reshape(1, sample.shape[0])
+        predictions = []
 
-    predictions = np.concatenate(predictions, axis=1)
+        for _ in range(PREDICTION_ITERATIONS):
+            predictions.append(model.predict(sample))
 
-    true_predictions = np.count_nonzero(predictions, axis=1).tolist()
-    false_predictions = [PREDICTION_ITERATIONS - i for i in true_predictions]
-    actual_predictions = [int(y[0]) for y in y_test.tolist()]
+        predictions = np.concatenate(predictions, axis=1)
+        average = np.average(predictions, axis=1)
+        standard_deviation = np.std(predictions, axis=1)
 
-    correct_predictions = 0
-    for true, false, actual in zip(true_predictions, false_predictions, actual_predictions):
-        if true > false and actual == 1:
-            correct_predictions += 1
-
-    print(f'Accuracy: {correct_predictions/float(TEST_SIZE)}')
-    for i in range(TEST_SIZE):
         print(
-            f'Predictions: True: {true_predictions[i]}, '
-            f'False: {false_predictions[i]} '
-            f'Majority Prediction: {true_predictions[i] > false_predictions[i]} '
-            f'- Actual: {bool(actual_predictions[i])}'
+            f'Sample: {i}\n'
+            f'Average: {average[0]}\n'
+            f'Standard Deviation: {standard_deviation[0]}\n'
+            f'Label: {y_test[i][0]}\n\n'
         )
