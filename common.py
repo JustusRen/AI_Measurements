@@ -29,7 +29,7 @@ TRAIN_SIZE = int(NUM_SAMPLES * SPLIT_FACTOR)
 TEST_SIZE = int(NUM_SAMPLES - TRAIN_SIZE)
 
 # number of epochs to train for
-EPOCHS = 30
+EPOCHS = 10
 
 
 def preprocess_data(dataset: pd.Series, vectorizer) -> np.ndarray:
