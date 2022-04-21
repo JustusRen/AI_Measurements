@@ -10,12 +10,16 @@ RANDOM_SEED = 1
 
 # urls for true/false datasets
 DATASET_URLS = [
-    "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/True.csv",
-    "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/Fake.csv"
+    # old data; super biased
+    # "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/True.csv",
+    # "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/Fake.csv"
+
+    # new data
+    "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 ]
 
 # number of samples to test/train on
-NUM_SAMPLES = 3000
+NUM_SAMPLES = 5000
 
 # train/test split factor
 SPLIT_FACTOR = 0.5
@@ -54,3 +58,15 @@ def label_data(input, output, label):
     df['label'] = label
     df = df.drop(columns=['title', 'subject', 'date'])
     df.to_csv(output, index=False)
+
+
+def get_data(paths: str, label:int) -> pd.DataFrame:
+    text = []
+    for file in paths:
+        with open(file, 'r') as fin:
+            text.append(fin.readlines())
+
+    frame = pd.DataFrame(data=text, columns=['text'])
+    frame['label'] = label
+
+    return frame
