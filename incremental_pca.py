@@ -4,7 +4,7 @@ import pandas
 import matplotlib.pyplot as plt
 import numpy as np
 from transformers import squad_convert_examples_to_features
-from bnn import download_data, RANDOM_SEED
+from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import IncrementalPCA, PCA
 
