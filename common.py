@@ -1,7 +1,6 @@
 import pandas as pd
 import wget
-import string
-import numpy as np
+import matplotlib.pyplot as plt
 from typing import *
 
 
@@ -10,38 +9,32 @@ RANDOM_SEED = 1
 
 # urls for true/false datasets
 DATASET_URLS = [
-    # old data; super biased
-    # "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/True.csv",
-    # "https://raw.githubusercontent.com/ozzgural/MA-540-TEAM3-DATA/main/input-data/Fake.csv"
-
-    # new data
     "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 ]
 
-# number of samples to test/train on
-NUM_SAMPLES = 5000
-
-# train/test split factor
-SPLIT_FACTOR = 0.5
-
-# train/test batch size
-TRAIN_SIZE = int(NUM_SAMPLES * SPLIT_FACTOR)
-TEST_SIZE = int(NUM_SAMPLES - TRAIN_SIZE)
-
 # number of epochs to train for
-EPOCHS = 10
+EPOCHS = 120
 
 
-def preprocess_data(dataset: pd.Series, vectorizer) -> np.ndarray:
-    dataset = dataset.str.lower()
-    dataset = dataset.apply(
-        lambda text: text.translate(
-            str.maketrans('', '', string.punctuation)
-        )
-    )
+def plot_history(history):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    x = range(1, len(acc) + 1)
 
-    embeddings = vectorizer.fit_transform(dataset)
-    return embeddings
+    plt.style.use('ggplot')
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(x, acc, 'b', label='Training acc')
+    plt.plot(x, val_acc, 'r', label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(x, loss, 'b', label='Training loss')
+    plt.plot(x, val_loss, 'r', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.legend()
 
 
 def download_data() -> List[str]:
@@ -63,7 +56,7 @@ def label_data(input, output, label):
 def get_data(paths: str, label:int) -> pd.DataFrame:
     text = []
     for file in paths:
-        with open(file, 'r') as fin:
+        with open(file, 'r', encoding='utf-8') as fin:
             text.append(fin.readlines())
 
     frame = pd.DataFrame(data=text, columns=['text'])

@@ -135,3 +135,7 @@ dmypy.json
 
 aclImdb
 aclImdb_v1.tar.gz
+
+.vscode
+
+figures
