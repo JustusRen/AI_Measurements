@@ -131,7 +131,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
 *.csv
+*.txt
 
 aclImdb
 aclImdb_v1.tar.gz
@@ -139,3 +141,6 @@ aclImdb_v1.tar.gz
 .vscode
 
 figures
+
+# pre-trained models
+models

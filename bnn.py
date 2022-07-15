@@ -1,3 +1,4 @@
+from enum import auto
 import os
 import glob
 import tarfile
@@ -8,19 +9,23 @@ import tensorflow_probability as tfp
 import matplotlib.pyplot as plt
 import gc
 import pandas as pd
+import nltk
+import numpy as np
 from tensorflow import keras
 from common import *
-from typing import *
+from typing import List
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+from nltk.stem import WordNetLemmatizer
+from autoencoder import Autoencoder
 
-try:
-    stopwords.words("english")
-except Exception:
-    import nltk
 
+if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/wordnet.zip"):
+    nltk.download("wordnet")
+if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/stopwords.zip"):
     nltk.download("stopwords")
+if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/omw-1.4.zip"):
+    nltk.download("omw-1.4")
 
 
 # zero mean, unit variance multivariate normal
@@ -54,7 +59,7 @@ def posterior(kernel_size, bias_size, dtype=None):
 
 def remove_stopwords(frame: pd.Series) -> pd.Series:
     for i in range(frame.size):
-        document: List = frame.values[i].split()
+        document: List = frame.values[i].split()  # type: ignore
 
         for word in stopwords.words("english"):
             try:
@@ -66,12 +71,12 @@ def remove_stopwords(frame: pd.Series) -> pd.Series:
     return frame
 
 
-def stem_doc(document: str) -> str:
+def lemmatize(document: str) -> str:
     words = []
-    stemmer = PorterStemmer()
+    lemmatizer = WordNetLemmatizer()
 
     for word in document.split():
-        words.append(stemmer.stem(word))
+        words.append(lemmatizer.lemmatize(word))
 
     return " ".join(words)
 
@@ -79,18 +84,28 @@ def stem_doc(document: str) -> str:
 def preprocess(frame: pd.Series) -> pd.Series:
     # preprocess data and transform embeddings
     frame = frame.str.lower()
+    frame = frame.str.strip()
     # remove line breaks
-    frame = frame.apply(lambda text: text.replace("<br />", ""))
-    # first stopword removal pass
-    frame = remove_stopwords(frame)
-    # remove punctuation
-    frame = frame.apply(
-        lambda text: text.translate(str.maketrans("", "", string.punctuation))
-    )
-    # need two passes to get rid of all stopwords (e.g. stopwords in-between parenthesis)
-    frame = remove_stopwords(frame)
+    frame = frame.apply(lambda text: text.replace("<br />", ""))  # type: ignore
     # stem each word in each document
-    frame = frame.apply(lambda text: stem_doc(text))
+    frame = remove_stopwords(frame)
+    frame = frame.apply(lambda text: lemmatize(text))  # type: ignore
+    # remove punctuation
+    frame = frame.str.replace(",", " ", regex=False)
+    frame = frame.str.replace("(", " ", regex=False)
+    frame = frame.str.replace(")", " ", regex=False)
+    frame = frame.str.replace('"', " ", regex=False)
+    frame = frame.str.replace(".", " ", regex=False)
+    frame = frame.str.replace("-", " ", regex=False)
+    frame = frame.str.replace("!", " ", regex=False)
+    frame = frame.str.replace("?", " ", regex=False)
+
+    for i in range(frame.size):
+        document: str = frame.values[i] # type: ignore
+        while "  " in document:
+            document = document.replace("  ", " ")
+        frame.values[i] = document
+
     return frame
 
 
@@ -100,10 +115,13 @@ def build_model(input_shape, kl_weight):
     # normalization/hidden layers
     # TODO: test without batch normalization
     features = keras.layers.BatchNormalization()(inputs)
-    # TODO: test different numbers of neurons (probably way more than 8; input size is typically around 100k)
-    features = keras.layers.Dense(8, activation="sigmoid")(features)
-    features = keras.layers.Dense(8, activation="sigmoid")(features)
-    # probabilistic layer(s)
+    # TODO: test different numbers of neurons (probably way more than 8)
+    features = tfp.layers.DenseVariational(
+        units=8, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
+    )(features)
+    features = tfp.layers.DenseVariational(
+        units=8, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
+    )(features)
     distribution_params = tfp.layers.DenseVariational(
         units=2, make_prior_fn=prior, make_posterior_fn=posterior, kl_weight=kl_weight
     )(features)
@@ -158,25 +176,38 @@ if __name__ == "__main__":
         neg_frame = get_data(paths, 0)
 
         # combine and shuffle data
-        tr_df = pd.concat([pos_frame, neg_frame])
-        tr_df = tr_df.sample(frac=1, random_state=RANDOM_SEED)
-        tr_df.to_csv("train.csv", columns=["text", "label"])
+        training_df = pd.concat([pos_frame, neg_frame])
+        training_df = training_df.sample(frac=1, random_state=RANDOM_SEED)
+        training_df.to_csv("train.csv", columns=["text", "label"])
     else:
-        tr_df = pd.read_csv("train.csv", usecols=["text", "label"])
+        training_df = pd.read_csv("train.csv", usecols=["text", "label"])
 
     # preprocess training data
-    tr_df["text"] = preprocess(tr_df["text"])
-    print(tr_df.head())
-
+    training_df["text"] = preprocess(training_df["text"])
     # generate numerical embeddings
     vectorizer = TfidfVectorizer()
-    x_train = vectorizer.fit_transform(tr_df["text"].to_numpy()).toarray()
-    y_train = tr_df["label"].to_numpy()
-    del tr_df
+    embeddings = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
+    y_train = training_df["label"].to_numpy()
+    del training_df
+
+    # autoencoder = Autoencoder(1000, embeddings.shape[1])
+    # autoencoder.compile(optimizer="adam", loss="mse")
+    # print("Training autoencoder")
+    # autoencoder.fit(embeddings, embeddings, validation_split=0.1, epochs=5)
+    autoencoder = tf.keras.models.load_model(
+        "models/autoencoder.tf", custom_objects={"Autoencoder": Autoencoder}
+    )
+
+    print(f"Embeddings shape: {embeddings.shape}")
+
+    x_train = np.zeros(shape=(embeddings.shape[0], 1000))
+    for i in range(x_train.shape[0]):
+        inputs = embeddings[i].reshape(1, embeddings.shape[1])
+        x_train[i] = autoencoder.encode(inputs)
+    del embeddings
 
     # training data shapes
     print(f"X train shape: {x_train.shape}")
-    print(f"y train shape: {y_train.shape}")
 
     # create model
     model = build_model(input_shape=x_train.shape[1], kl_weight=(1 / x_train.shape[0]))
@@ -203,7 +234,6 @@ if __name__ == "__main__":
 
     # clear training data from memory (so there's room for the testing data)
     del x_train, y_train
-    gc.collect()
 
     # testing data
     if not os.path.exists("test.csv"):
@@ -212,20 +242,24 @@ if __name__ == "__main__":
         paths = glob.glob("aclImdb/test/neg/*.txt")
         neg_frame = get_data(paths, 0)
 
-        ts_df = pd.concat([pos_frame, neg_frame])
-        ts_df = ts_df.sample(frac=1, random_state=RANDOM_SEED)
-        ts_df.to_csv("test.csv", columns=["text", "labels"])
+        testing_df = pd.concat([pos_frame, neg_frame])
+        testing_df = testing_df.sample(frac=1, random_state=RANDOM_SEED)
+        testing_df.to_csv("test.csv", columns=["text", "label"])
     else:
-        ts_df = pd.read_csv("test.csv", usecols=["text", "labels"])
+        testing_df = pd.read_csv("test.csv", usecols=["text", "label"])
 
     # preprocess test data
-    ts_df["text"] = preprocess(ts_df["text"])
-    print(ts_df.head())
-
+    testing_df["text"] = preprocess(testing_df["text"])
     # generate numerical embeddings for test data
-    x_test = vectorizer.transform(ts_df["text"].to_numpy()).toarray()
-    y_test = ts_df["labels"].to_numpy()
-    del ts_df
+    embeddings = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
+    x_test = np.zeros(shape=(embeddings.shape[0], 1000))
+    y_test = testing_df["label"].to_numpy()
+    del testing_df
+
+    for i in range(x_test.shape[0]):
+        inputs = embeddings[i].reshape(1, embeddings.shape[1])
+        x_test[i] = autoencoder.encode(inputs)
+    del embeddings
 
     # testing data shapes
     print(f"X test shape: {x_test.shape}\ny test shape: {y_test.shape}")
@@ -234,5 +268,3 @@ if __name__ == "__main__":
     loss, accuracy = model.evaluate(x_test, y_test)
     with open("model_results.txt", "w+") as log:
         log.write(f"Test accuracy: {accuracy}, Test loss: {loss}")
-
-    gc.collect()
