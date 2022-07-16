@@ -1,9 +1,11 @@
-import gc
 import tensorflow as tf
 import keras
-from keras.backend import clear_session
+
 
 class Autoencoder(keras.Model):
+    input_dim: int
+    latent_dim: int
+
     def __init__(self, latent_dim, input_dim):
         super(Autoencoder, self).__init__()
 
@@ -12,7 +14,9 @@ class Autoencoder(keras.Model):
 
         self.encoder = keras.Sequential(
             [
-                tf.keras.layers.Dense(latent_dim, input_shape=(input_dim,), activation="relu")
+                tf.keras.layers.Dense(
+                    latent_dim, input_shape=(input_dim,), activation="relu"
+                )
             ]
         )
 
@@ -33,8 +37,6 @@ class Autoencoder(keras.Model):
         return {
             "latent_dim": self.latent_dim,
             "input_dim": self.input_dim,
-            # "encoder": self.encoder,
-            # "decoder": self.decoder,
         }
 
     @classmethod
@@ -43,27 +45,25 @@ class Autoencoder(keras.Model):
 
 
 if __name__ == "__main__":
-    from bnn import preprocess
+    import gc
+    from keras.backend import clear_session
     from sklearn.feature_extraction.text import TfidfVectorizer
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    import numpy as np
+    from common import preprocess, get_train_test_frames
 
-    # training data
-    training_df = pd.read_csv("train.csv", usecols=["text"])
-    # preprocess training data
-    training_df["text"] = preprocess(training_df["text"])
-    # print(training_df.head())
+    # training/testing data frames
+    training_df, testing_df = get_train_test_frames()
+    # preprocess data
+    training_df["text"], testing_df["text"] = preprocess(
+        training_df["text"]
+    ), preprocess(testing_df["text"])
 
     # generate numerical embeddings
     vectorizer = TfidfVectorizer()
     x_train = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
-    print(x_train.shape)
-    del training_df, vectorizer
+    print(f"Training data shape: {x_train.shape}")
 
     # setup autoencoder
-    latent_dim = 1000
-    ae = Autoencoder(input_dim=x_train.shape[1], latent_dim=latent_dim)
+    ae = Autoencoder(input_dim=x_train.shape[1], latent_dim=1000)
     ae.compile(optimizer="adam", loss="mse")
     ae.fit(x_train, x_train, epochs=15, validation_split=0.1)
     ae.save("models/autoencoder.tf", save_format="tf")
@@ -73,3 +73,12 @@ if __name__ == "__main__":
 
     loss = ae.evaluate(x_train, x_train)
     print(f"Training loss: {loss}")
+    del x_train, training_df
+
+    clear_session()
+    gc.collect()
+
+    x_test = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
+    print(f"Testing data shape: {x_test.shape}")
+    loss = ae.evaluate(x_test, x_test)
+    print(f"Testing loss: {loss}")
