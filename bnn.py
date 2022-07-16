@@ -1,10 +1,12 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
-from tensorflow import keras
+import keras
+import gc
 from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer
 from autoencoder import Autoencoder
+from keras.backend import clear_session
 
 
 # zero mean, unit variance multivariate normal
@@ -36,26 +38,33 @@ def posterior(kernel_size, bias_size, dtype=None):
     return posterior_model
 
 
-def build_model(input_shape, kl_weight):
+def build_model(input_shape, kl_weight=None, units=8):
     # input layer
     inputs = keras.Input(shape=(input_shape,), dtype=tf.float64)
     # normalization/hidden layers
     # TODO: test without batch normalization
-    features = keras.layers.BatchNormalization()(inputs)
+    features = tf.keras.layers.BatchNormalization()(inputs)
     # TODO: test different numbers of neurons (probably way more than 8)
     features = tfp.layers.DenseVariational(
-        units=8, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
+        units=units, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
     )(features)
     features = tfp.layers.DenseVariational(
-        units=8, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
+        units=units, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid"
     )(features)
     distribution_params = tfp.layers.DenseVariational(
-        units=2, make_prior_fn=prior, make_posterior_fn=posterior, kl_weight=kl_weight
+        units=2, make_prior_fn=prior, make_posterior_fn=posterior, activation="sigmoid", # kl_weight=kl_weight
     )(features)
     # output layer
     outputs = tfp.layers.IndependentNormal(1)(distribution_params)
     # final model
-    return keras.Model(inputs=inputs, outputs=outputs)
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    model.compile(
+        optimizer=tf.keras.optimizers.RMSprop(learning_rate=3e-5),
+        loss=tf.keras.losses.BinaryCrossentropy(),
+        metrics=[tf.keras.metrics.BinaryAccuracy()],
+    )
+
+    return model
 
 
 if __name__ == "__main__":
@@ -84,14 +93,14 @@ if __name__ == "__main__":
         x_train[i] = autoencoder.encode(inputs)
     print(f"X train shape: {x_train.shape}")
 
+    del training_df, embeddings
+
+    clear_session()
+    gc.collect()
+
     # create model
     # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
-    model = build_model(input_shape=x_train.shape[1], kl_weight=(1 / x_train.shape[0]))
-    model.compile(
-        optimizer=keras.optimizers.RMSprop(learning_rate=0.001),
-        loss=keras.losses.BinaryCrossentropy(),
-        metrics=[keras.metrics.BinaryAccuracy()],
-    )
+    model = build_model(input_shape=x_train.shape[1])
     history = model.fit(
         x_train,
         y_train,
@@ -112,6 +121,11 @@ if __name__ == "__main__":
         inputs = embeddings[i].reshape(1, embeddings.shape[1])
         x_test[i] = autoencoder.encode(inputs)
     print(f"X test shape: {x_test.shape}\ny test shape: {y_test.shape}")
+
+    del testing_df, embeddings, vectorizer
+
+    clear_session()
+    gc.collect()
 
     # evaluate on test data
     loss, accuracy = model.evaluate(x_test, y_test)

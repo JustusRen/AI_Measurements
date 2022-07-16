@@ -53,9 +53,8 @@ if __name__ == "__main__":
     # training/testing data frames
     training_df, testing_df = get_train_test_frames()
     # preprocess data
-    training_df["text"], testing_df["text"] = preprocess(
-        training_df["text"]
-    ), preprocess(testing_df["text"])
+    training_df["text"] = preprocess(training_df["text"])
+    testing_df["text"] = preprocess(testing_df["text"])
 
     # generate numerical embeddings
     vectorizer = TfidfVectorizer()
@@ -68,12 +67,14 @@ if __name__ == "__main__":
     ae.fit(x_train, x_train, epochs=15, validation_split=0.1)
     ae.save("models/autoencoder.tf", save_format="tf")
 
+    del training_df
+
     clear_session()
     gc.collect()
 
     loss = ae.evaluate(x_train, x_train)
     print(f"Training loss: {loss}")
-    del x_train, training_df
+    del x_train, loss
 
     clear_session()
     gc.collect()
