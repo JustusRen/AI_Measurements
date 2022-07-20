@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import nltk
 import tarfile
 import glob
+import string
 from typing import List, Tuple
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
+from nltk.stem import WordNetLemmatizer, PorterStemmer
 
 
 if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/wordnet.zip"):
@@ -24,7 +25,7 @@ RANDOM_SEED = 1
 DATASET_URLS = ["https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"]
 
 # number of epochs to train for
-EPOCHS = 400
+EPOCHS = 150
 
 
 def plot_history(history):
@@ -104,15 +105,21 @@ def lemmatize(document: str) -> str:
     return " ".join(words)
 
 
+def stem_doc(document: str) -> str:
+    words = []
+    stemmer = PorterStemmer()
+
+    for word in document.split():
+        words.append(stemmer.stem(word))
+
+    return " ".join(words)
+
+
 def preprocess(frame: pd.Series) -> pd.Series:
     # preprocess data and transform embeddings
     frame = frame.str.lower()
-    frame = frame.str.strip()
     # remove line breaks
-    frame = frame.apply(lambda text: text.replace("<br />", ""))  # type: ignore
-    # stem each word in each document
-    frame = remove_stopwords(frame)
-    frame = frame.apply(lambda text: lemmatize(text))  # type: ignore
+    frame = frame.apply(lambda text: text.replace("<br />", " ")) # type: ignore
     # remove punctuation
     frame = frame.str.replace(",", " ", regex=False)
     frame = frame.str.replace("(", " ", regex=False)
@@ -120,7 +127,6 @@ def preprocess(frame: pd.Series) -> pd.Series:
     frame = frame.str.replace('"', " ", regex=False)
     frame = frame.str.replace(".", " ", regex=False)
     frame = frame.str.replace("-", " ", regex=False)
-    frame = frame.str.replace("!", " ", regex=False)
     frame = frame.str.replace("?", " ", regex=False)
 
     for i in range(frame.size):

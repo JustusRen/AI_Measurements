@@ -38,37 +38,27 @@ def posterior(kernel_size, bias_size, dtype=None):
     return posterior_model
 
 
-def build_model(input_shape, kl_weight=None, units=8):
+def build_model(input_shape, kl_weight=None, units=50):
     # input layer
-    inputs = keras.Input(shape=(input_shape,), dtype=tf.float64)
+    inputs = keras.Input(shape=(input_shape,))
     # normalization/hidden layers
     # TODO: test without batch normalization
     features = tf.keras.layers.BatchNormalization()(inputs)
     # TODO: test different numbers of neurons (probably way more than 8)
-    features = tfp.layers.DenseVariational(
-        units=units,
-        make_prior_fn=prior,
-        make_posterior_fn=posterior,
-        activation="sigmoid",
-    )(features)
-    features = tfp.layers.DenseVariational(
-        units=units,
-        make_prior_fn=prior,
-        make_posterior_fn=posterior,
-        activation="sigmoid",
-    )(features)
+    features = tf.keras.layers.Dense(units, activation="sigmoid")(features)
+    features = tf.keras.layers.Dense(units, activation="sigmoid")(features)
     distribution_params = tfp.layers.DenseVariational(
         units=2,
         make_prior_fn=prior,
         make_posterior_fn=posterior,
-        activation="sigmoid",  # kl_weight=kl_weight
+        kl_weight=kl_weight
     )(features)
     # output layer
     outputs = tfp.layers.IndependentNormal(1)(distribution_params)
     # final model
     model = keras.Model(inputs=inputs, outputs=outputs)
     model.compile(
-        optimizer=tf.keras.optimizers.RMSprop(learning_rate=3e-5),
+        optimizer=tf.keras.optimizers.RMSprop(learning_rate=0.001),
         loss=tf.keras.losses.BinaryCrossentropy(),
         metrics=[tf.keras.metrics.BinaryAccuracy()],
     )
@@ -77,6 +67,9 @@ def build_model(input_shape, kl_weight=None, units=8):
 
 
 if __name__ == "__main__":
+    """
+    This code trains a hybrid bayesian neural network to about 80% accuracy on the test set
+    """
     log = open("model_results.txt", "w")
     training_df, testing_df = get_train_test_frames()
 
@@ -104,23 +97,6 @@ if __name__ == "__main__":
 
     del training_df, embeddings
 
-    clear_session()
-    gc.collect()
-
-    # create model
-    # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
-    model = build_model(input_shape=x_train.shape[1])
-    history = model.fit(
-        x_train,
-        y_train,
-        epochs=EPOCHS,
-        validation_split=0.1,
-    )
-
-    loss, accuracy = model.evaluate(x_train, y_train)
-    # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
-    log.write(f"Training accuracy: {accuracy}, Training loss: {loss}\n")
-
     # generate numerical embeddings for testing data
     embeddings = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
     # run testing embeddings through autoencoder
@@ -131,13 +107,33 @@ if __name__ == "__main__":
         x_test[i] = autoencoder.encode(inputs)
     print(f"X test shape: {x_test.shape}\ny test shape: {y_test.shape}")
 
-    del testing_df, embeddings, vectorizer
-
     clear_session()
     gc.collect()
 
-    # evaluate on test data
-    loss, accuracy = model.evaluate(x_test, y_test)
-    log.write(f"Test accuracy: {accuracy}, Test loss: {loss}\n")
+    for i in range(8, 800):
+        # create model
+        # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
+        model = build_model(input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0]))
+        history = model.fit(
+            x_train,
+            y_train,
+            epochs=EPOCHS,
+            validation_split=0.1,
+        )
+
+        loss, accuracy = model.evaluate(x_train, y_train)
+        # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
+        log.write(f"Training accuracy: {accuracy}, Training loss: {loss}, Units={i}\n")
+
+        del testing_df, embeddings, vectorizer
+
+        clear_session()
+        gc.collect()
+
+        # evaluate on test data
+        loss, accuracy = model.evaluate(x_test, y_test)
+        log.write(f"Test accuracy: {accuracy}, Test loss: {loss}, Units={i}\n")
+
+        log.write("\n")
 
     log.close()
