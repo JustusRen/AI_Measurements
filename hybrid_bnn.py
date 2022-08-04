@@ -1,11 +1,9 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
-import numpy as np
 import keras
 import gc
 from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer
-from autoencoder import Autoencoder
 from keras.backend import clear_session
 
 
@@ -48,10 +46,7 @@ def build_model(input_shape, kl_weight=None, units=50):
     features = tf.keras.layers.Dense(units, activation="sigmoid")(features)
     features = tf.keras.layers.Dense(units, activation="sigmoid")(features)
     distribution_params = tfp.layers.DenseVariational(
-        units=2,
-        make_prior_fn=prior,
-        make_posterior_fn=posterior,
-        kl_weight=kl_weight
+        units=2, make_prior_fn=prior, make_posterior_fn=posterior, kl_weight=kl_weight
     )(features)
     # output layer
     outputs = tfp.layers.IndependentNormal(1)(distribution_params)
@@ -77,63 +72,38 @@ if __name__ == "__main__":
     training_df["text"] = preprocess(training_df["text"])
     testing_df["text"] = preprocess(testing_df["text"])
 
-    # load autoencoder from saved model
-    autoencoder: Autoencoder = tf.keras.models.load_model(
-        "models/autoencoder.tf", custom_objects={"Autoencoder": Autoencoder}
-    )
-
     # generate numerical embeddings for training data
     vectorizer = TfidfVectorizer()
-    embeddings = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
-    print(f"Embeddings shape: {embeddings.shape}")
-
-    # run training embeddings through autoencoder
-    x_train = np.zeros(shape=(embeddings.shape[0], autoencoder.latent_dim))
+    x_train = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
     y_train = training_df["label"].to_numpy()
-    for i in range(x_train.shape[0]):
-        inputs = embeddings[i].reshape(1, embeddings.shape[1])
-        x_train[i] = autoencoder.encode(inputs)
-    print(f"X train shape: {x_train.shape}")
-
-    del training_df, embeddings
+    print(f"(X, y) train shape: {x_train.shape, y_train.shape}")
 
     # generate numerical embeddings for testing data
-    embeddings = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
-    # run testing embeddings through autoencoder
-    x_test = np.zeros(shape=(embeddings.shape[0], autoencoder.latent_dim))
+    x_test = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
     y_test = testing_df["label"].to_numpy()
-    for i in range(x_test.shape[0]):
-        inputs = embeddings[i].reshape(1, embeddings.shape[1])
-        x_test[i] = autoencoder.encode(inputs)
-    print(f"X test shape: {x_test.shape}\ny test shape: {y_test.shape}")
+    print(f"(X, y) test shape: {x_test.shape, y_test.shape}")
 
+    del training_df, testing_df
     clear_session()
     gc.collect()
 
-    for i in range(8, 800):
-        # create model
-        # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
-        model = build_model(input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0]))
-        history = model.fit(
-            x_train,
-            y_train,
-            epochs=EPOCHS,
-            validation_split=0.1,
-        )
+    # create model
+    # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
+    model = build_model(
+        input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0])
+    )
+    model.fit(
+        x_train,
+        y_train,
+        epochs=120,
+        validation_split=0.1,
+    )
 
-        loss, accuracy = model.evaluate(x_train, y_train)
-        # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
-        log.write(f"Training accuracy: {accuracy}, Training loss: {loss}, Units={i}\n")
+    # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
+    loss, accuracy = model.evaluate(x_train, y_train)
+    log.write(f"Training accuracy: {accuracy}, Training loss: {loss}\n")
 
-        del testing_df, embeddings, vectorizer
-
-        clear_session()
-        gc.collect()
-
-        # evaluate on test data
-        loss, accuracy = model.evaluate(x_test, y_test)
-        log.write(f"Test accuracy: {accuracy}, Test loss: {loss}, Units={i}\n")
-
-        log.write("\n")
-
+    # evaluate on test data
+    loss, accuracy = model.evaluate(x_test, y_test)
+    log.write(f"Test accuracy: {accuracy}, Test loss: {loss}\n")
     log.close()

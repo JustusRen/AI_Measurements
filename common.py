@@ -2,21 +2,11 @@ import os
 import pandas as pd
 import wget
 import matplotlib.pyplot as plt
-import nltk
 import tarfile
 import glob
 import string
 from typing import List, Tuple
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer, PorterStemmer
 
-
-if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/wordnet.zip"):
-    nltk.download("wordnet")
-if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/stopwords.zip"):
-    nltk.download("stopwords")
-if not os.path.exists(f"{os.environ['HOME']}/nltk_data/corpora/omw-1.4.zip"):
-    nltk.download("omw-1.4")
 
 # constant random state value for reproducibility
 RANDOM_SEED = 1
@@ -81,45 +71,11 @@ def get_data(paths: List[str], label: int) -> pd.DataFrame:
     return frame
 
 
-def remove_stopwords(frame: pd.Series) -> pd.Series:
-    for i in range(frame.size):
-        document: List = frame.values[i].split()  # type: ignore
-
-        for word in stopwords.words("english"):
-            try:
-                document.remove(word)
-            except ValueError:
-                continue
-        frame.values[i] = " ".join(document)
-
-    return frame
-
-
-def lemmatize(document: str) -> str:
-    words = []
-    lemmatizer = WordNetLemmatizer()
-
-    for word in document.split():
-        words.append(lemmatizer.lemmatize(word))
-
-    return " ".join(words)
-
-
-def stem_doc(document: str) -> str:
-    words = []
-    stemmer = PorterStemmer()
-
-    for word in document.split():
-        words.append(stemmer.stem(word))
-
-    return " ".join(words)
-
-
 def preprocess(frame: pd.Series) -> pd.Series:
     # preprocess data and transform embeddings
     frame = frame.str.lower()
     # remove line breaks
-    frame = frame.apply(lambda text: text.replace("<br />", " ")) # type: ignore
+    frame = frame.apply(lambda text: text.replace("<br />", " "))  # type: ignore
     # remove punctuation
     frame = frame.str.replace(",", " ", regex=False)
     frame = frame.str.replace("(", " ", regex=False)
