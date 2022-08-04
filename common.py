@@ -1,11 +1,12 @@
 import os
+from string import punctuation
 import pandas as pd
 import wget
 import matplotlib.pyplot as plt
 import tarfile
 import glob
-import string
 from typing import List, Tuple
+from tokenizers.normalizers import NFD
 
 
 # constant random state value for reproducibility
@@ -62,7 +63,7 @@ def label_data(input, output, label):
 def get_data(paths: List[str], label: int) -> pd.DataFrame:
     text = []
     for file in paths:
-        with open(file, "r", encoding="utf-8") as fin:
+        with open(file, "r", encoding="utf8") as fin:
             text.append(fin.readlines())
 
     frame = pd.DataFrame(data=text, columns=["text"])
@@ -72,18 +73,17 @@ def get_data(paths: List[str], label: int) -> pd.DataFrame:
 
 
 def preprocess(frame: pd.Series) -> pd.Series:
+    punctuation = ",()@#%^&*_-+={}[];:\"/?.~`"
+    normalizer = NFD()
     # preprocess data and transform embeddings
     frame = frame.str.lower()
     # remove line breaks
+    frame = frame.apply(lambda text: normalizer.normalize_str(text))
     frame = frame.apply(lambda text: text.replace("<br />", " "))  # type: ignore
     # remove punctuation
-    frame = frame.str.replace(",", " ", regex=False)
-    frame = frame.str.replace("(", " ", regex=False)
-    frame = frame.str.replace(")", " ", regex=False)
-    frame = frame.str.replace('"', " ", regex=False)
-    frame = frame.str.replace(".", " ", regex=False)
-    frame = frame.str.replace("-", " ", regex=False)
-    frame = frame.str.replace("?", " ", regex=False)
+    frame = frame.str.replace("'", '', regex=False)
+    frame = frame.str.replace("\x97", " ", regex=False)
+    frame = frame.apply(lambda text: text.translate(str.maketrans(' ', ' ', punctuation)))
 
     for i in range(frame.size):
         document: str = frame.values[i]  # type: ignore

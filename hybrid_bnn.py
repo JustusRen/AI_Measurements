@@ -73,7 +73,7 @@ if __name__ == "__main__":
     testing_df["text"] = preprocess(testing_df["text"])
 
     # generate numerical embeddings for training data
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(min_df=5)
     x_train = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
     y_train = training_df["label"].to_numpy()
     print(f"(X, y) train shape: {x_train.shape, y_train.shape}")
@@ -102,6 +102,10 @@ if __name__ == "__main__":
     # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
     loss, accuracy = model.evaluate(x_train, y_train)
     log.write(f"Training accuracy: {accuracy}, Training loss: {loss}\n")
+
+    del x_train, y_train
+    clear_session()
+    gc.collect()
 
     # evaluate on test data
     loss, accuracy = model.evaluate(x_test, y_test)
