@@ -1,5 +1,4 @@
 import os
-from string import punctuation
 import pandas as pd
 import wget
 import matplotlib.pyplot as plt
@@ -73,7 +72,7 @@ def get_data(paths: List[str], label: int) -> pd.DataFrame:
 
 
 def preprocess(frame: pd.Series) -> pd.Series:
-    punctuation = ",()@#%^&*_-+={}[];:\"/?.~`"
+    punctuation = ',()@#%^&*_-+={}[];:"/?.~`'
     normalizer = NFD()
     # preprocess data and transform embeddings
     frame = frame.str.lower()
@@ -81,9 +80,11 @@ def preprocess(frame: pd.Series) -> pd.Series:
     frame = frame.apply(lambda text: normalizer.normalize_str(text))
     frame = frame.apply(lambda text: text.replace("<br />", " "))  # type: ignore
     # remove punctuation
-    frame = frame.str.replace("'", '', regex=False)
+    frame = frame.str.replace("'", "", regex=False)
     frame = frame.str.replace("\x97", " ", regex=False)
-    frame = frame.apply(lambda text: text.translate(str.maketrans(' ', ' ', punctuation)))
+    frame = frame.apply(
+        lambda text: text.translate(str.maketrans(" ", " ", punctuation))
+    )
 
     for i in range(frame.size):
         document: str = frame.values[i]  # type: ignore
