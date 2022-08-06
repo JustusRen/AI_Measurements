@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import gc
+import matplotlib.pyplot as plt
 from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer
 from keras.backend import clear_session
@@ -51,12 +52,12 @@ def build_model(input_shape, kl_weight, units=10):
             tfp.layers.DenseFlipout(
                 units=units, activation="relu", kernel_divergence_fn=kl_fn
             ),
-            tfp.layers.DenseFlipout(units=2, kernel_divergence_fn=kl_fn)
+            tfp.layers.DenseFlipout(units=2, kernel_divergence_fn=kl_fn),
         ]
     )
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=3e-5),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=3e-4),
         loss=tf.keras.losses.BinaryCrossentropy(),
         metrics=[tf.keras.metrics.BinaryAccuracy()],
     )
@@ -95,7 +96,7 @@ if __name__ == "__main__":
     history = model.fit(
         x_train,
         y_train,
-        epochs=EPOCHS,
+        epochs=300,
         validation_split=0.1,
     )
 

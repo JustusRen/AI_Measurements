@@ -65,7 +65,7 @@ if __name__ == "__main__":
     """
     This code trains a hybrid bayesian neural network to about 80% accuracy on the test set
     """
-    log = open("model_results.txt", "w")
+    log = open("model_results_hybrid_bnn.txt", "w")
     training_df, testing_df = get_train_test_frames()
 
     # preprocess data
