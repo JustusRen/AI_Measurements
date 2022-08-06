@@ -88,7 +88,6 @@ if __name__ == "__main__":
     gc.collect()
 
     # create model
-    # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
     model = build_model(
         input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0])
     )

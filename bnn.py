@@ -1,41 +1,9 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import gc
-import matplotlib.pyplot as plt
 from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer
 from keras.backend import clear_session
-
-
-# zero mean, unit variance multivariate normal
-def prior(kernel_size, bias_size, dtype=None):
-    n = kernel_size + bias_size
-    print(kernel_size, bias_size)
-    prior_model = tf.keras.Sequential(
-        [
-            tfp.layers.DistributionLambda(
-                lambda t: tfp.distributions.MultivariateNormalDiag(
-                    loc=tf.zeros(n), scale_diag=tf.ones(n)
-                )
-            )
-        ]
-    )
-    return prior_model
-
-
-# variational multivariate normal (learnable means and variances)
-def posterior(kernel_size, bias_size, dtype=None):
-    n = kernel_size + bias_size
-    print(kernel_size, bias_size)
-    posterior_model = tf.keras.Sequential(
-        [
-            tfp.layers.VariableLayer(
-                tfp.layers.MultivariateNormalTriL.params_size(n), dtype=dtype
-            ),
-            tfp.layers.MultivariateNormalTriL(n),
-        ]
-    )
-    return posterior_model
 
 
 def build_model(input_shape, kl_weight, units=10):
@@ -89,7 +57,6 @@ if __name__ == "__main__":
     gc.collect()
 
     # create model
-    # TODO: need to do more work on kl_weight (https://en.wikipedia.org/wiki/Mutual_information, https://en.wikipedia.org/wiki/Kullback%E2%80%93Leibler_divergence)
     model = build_model(
         input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0])
     )
