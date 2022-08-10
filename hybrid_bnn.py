@@ -6,6 +6,8 @@ from common import *
 from sklearn.feature_extraction.text import TfidfVectorizer
 from keras.backend import clear_session
 
+from datetime  import datetime
+import os,time
 
 # zero mean, unit variance multivariate normal
 def prior(kernel_size, bias_size, dtype=None):
@@ -65,48 +67,148 @@ if __name__ == "__main__":
     """
     This code trains a hybrid bayesian neural network to about 80% accuracy on the test set
     """
-    log = open("model_results_hybrid_bnn.txt", "w")
-    training_df, testing_df = get_train_test_frames()
 
-    # preprocess data
-    training_df["text"] = preprocess(training_df["text"])
-    testing_df["text"] = preprocess(testing_df["text"])
+    iterations = 10
+    
+    filename = "hybridBnnActionLog.txt"
+    features = "hybridBnnFeatures.txt"
+    
+    time.sleep(60)
+    
+    for counter in range(iterations):
+        time.sleep(10)
 
-    # generate numerical embeddings for training data
-    vectorizer = TfidfVectorizer(min_df=5)
-    x_train = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
-    y_train = training_df["label"].to_numpy()
-    print(f"(X, y) train shape: {x_train.shape, y_train.shape}")
+        #os.system("sudo sync")
+        #os.system("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'")
 
-    # generate numerical embeddings for testing data
-    x_test = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
-    y_test = testing_df["label"].to_numpy()
-    print(f"(X, y) test shape: {x_test.shape, y_test.shape}")
+    
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startTestrun\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;preprocess data\n")
+            f.close()
+        print("start")
 
-    del training_df, testing_df
-    clear_session()
-    gc.collect()
+        log = open("model_results_hybrid_bnn.txt", "w")
+        training_df, testing_df = get_train_test_frames()
 
-    # create model
-    model = build_model(
-        input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0])
-    )
-    model.fit(
-        x_train,
-        y_train,
-        epochs=120,
-        validation_split=0.1,
-    )
+        # preprocess data
+        training_df["text"] = preprocess(training_df["text"])
+        testing_df["text"] = preprocess(testing_df["text"])
 
-    # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
-    loss, accuracy = model.evaluate(x_train, y_train)
-    log.write(f"Training accuracy: {accuracy}, Training loss: {loss}\n")
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;numberical embeddings for training\n")
+            f.close()
+        
+        # generate numerical embeddings for training data
+        vectorizer = TfidfVectorizer(min_df=5)
+        x_train = vectorizer.fit_transform(training_df["text"].to_numpy()).toarray()
+        y_train = training_df["label"].to_numpy()
+        print(f"(X, y) train shape: {x_train.shape, y_train.shape}")
 
-    del x_train, y_train
-    clear_session()
-    gc.collect()
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;numberical embeddings for testing\n")
+            f.close()
 
-    # evaluate on test data
-    loss, accuracy = model.evaluate(x_test, y_test)
-    log.write(f"Test accuracy: {accuracy}, Test loss: {loss}\n")
-    log.close()
+        # generate numerical embeddings for testing data
+        x_test = vectorizer.transform(testing_df["text"].to_numpy()).toarray()
+        y_test = testing_df["label"].to_numpy()
+        print(f"(X, y) test shape: {x_test.shape, y_test.shape}")
+
+
+      
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;delete dataframes\n")
+            f.close()
+    
+        del training_df, testing_df
+        clear_session()
+        gc.collect()
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;build model\n")
+            f.close()
+
+        # create model
+        model = build_model(
+            input_shape=x_train.shape[1], kl_weight=(1.0 / x_train.shape[0])
+        )
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;train model\n")
+            f.close()
+
+        model.fit(
+            x_train,
+            y_train,
+            epochs=120,
+            validation_split=0.1,
+        )
+
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;evaluate training\n")
+            f.close()
+
+        # TODO: should get more metrics than just accuracy and loss (sklearn confusion matrix)
+        loss, accuracy = model.evaluate(x_train, y_train)
+        log.write(f"Training accuracy: {accuracy}, Training loss: {loss}\n")
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;delete train data\n")
+            f.close()
+
+        del x_train, y_train
+        clear_session()
+        gc.collect()
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";startAction;evaluate testing\n")
+            f.close()
+
+        # evaluate on test data
+        loss, accuracy = model.evaluate(x_test, y_test)
+        log.write(f"Test accuracy: {accuracy}, Test loss: {loss}\n")
+        log.close()
+
+        with open(filename,"a") as f:
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopAction\n")
+            f.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            f.write(";stopTestrun\n")
+            f.close()
+
+        with open(features,"a") as g:
+            g.write(datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            g.write(", ")
+            g.write(str(counter))
+            g.write(": ")
+            g.write(str(model.get_support()))
+            g.write("\n")
+            g.close()
