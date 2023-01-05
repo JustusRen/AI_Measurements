@@ -41,13 +41,42 @@ def build_model(input_shape, kl_weight, units=10):
     model = tf.keras.Sequential(
         [
             tf.keras.layers.BatchNormalization(input_shape=(input_shape,)),
+            tfp.layers.Convolution2DFlipout(
+                6,
+                kernel_size=5,
+                padding="SAME",
+                kernel_divergence_fn=kl_fn,
+                activation="relu",
+            ),
+            tf.keras.layers.MaxPooling2D(
+                pool_size=[2, 2], strides=[2, 2], padding="SAME"
+            ),
+            tfp.layers.Convolution2DFlipout(
+                16,
+                kernel_size=5,
+                padding="SAME",
+                kernel_divergence_fn=kl_fn,
+                activation="relu",
+            ),
+            tf.keras.layers.MaxPooling2D(
+                pool_size=[2, 2], strides=[2, 2], padding="SAME"
+            ),
+            tfp.layers.Convolution2DFlipout(
+                120,
+                kernel_size=5,
+                padding="SAME",
+                kernel_divergence_fn=kl_fn,
+                activation="relu",
+            ),
+            tf.keras.layers.Flatten(),
             tfp.layers.DenseFlipout(
-                units=units, activation="relu", kernel_divergence_fn=kl_fn
+                84, kernel_divergence_fn=kl_fn, activation=tf.nn.relu
             ),
             tfp.layers.DenseFlipout(
-                units=units, activation="relu", kernel_divergence_fn=kl_fn
+                5,
+                kernel_divergence_fn=kl_fn,
+                activation="softmax",
             ),
-            tfp.layers.DenseFlipout(units=5, activation="softmax", kernel_divergence_fn=kl_fn),
         ]
     )
 
@@ -89,7 +118,7 @@ if __name__ == "__main__":
     y_train = []
     for i, label in enumerate(train_labels):
         logits = [0, 0, 0, 0, 0]
-        logits[int(label) - 1] = 1.
+        logits[int(label) - 1] = 1.0
         y_train.append(logits)
 
     x_test = [preprocess(x) for x in text[train_size:total_samples]]
@@ -97,7 +126,7 @@ if __name__ == "__main__":
     y_test = []
     for i, label in enumerate(test_labels):
         logits = [0, 0, 0, 0, 0]
-        logits[int(label) - 1] = 1.
+        logits[int(label) - 1] = 1.0
         y_test.append(logits)
 
     # generate numerical embeddings from text
